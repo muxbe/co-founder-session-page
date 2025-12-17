@@ -1,26 +1,390 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Background colors - from prototype */
+  --paper-bg: #fdfbf7;
+  --background: #fdfbf7;
+  --background-alt: #f1f3f5;
+  --foreground: #2c2420;
+  --ink-color: #2c2420;
+
+  /* Accent colors from prototype */
+  --accent-hot: #e76f51;
+  --accent-yellow: #e9c46a;
+  --accent-green: #22c55e;
+  --accent-blue: #3b82f6;
+
+  /* Chat colors */
+  --chat-bg: #fffbf0;
+  --postit-yellow: #fff9c4;
+  --chat-bot-bg: #ffffff;
+  --chat-user-bg: #fff9c4;
+
+  /* Notion colors */
+  --notion-gray: #f1f3f5;
+  --notion-text-gray: #787774;
+  --notion-text: #37352f;
+
+  /* Text colors */
+  --text-primary: #2c2420;
+  --text-secondary: #555555;
+  --text-muted: #787774;
+
+  /* Border colors */
+  --border: #e0e0e0;
+  --border-light: #f0f0f0;
+  --border-dark: 2px solid #2c2420;
+
+  /* Callout backgrounds */
+  --callout-warm: #fff8e1;
+  --callout-pink: #fff0f0;
+  --callout-gray: #f1f1ef;
 }
 
 @theme inline {
   --color-background: var(--background);
+  --color-background-alt: var(--background-alt);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+
+  --color-accent-yellow: var(--accent-yellow);
+  --color-accent-hot: var(--accent-hot);
+  --color-accent-green: var(--accent-green);
+  --color-accent-blue: var(--accent-blue);
+
+  --color-chat-bg: var(--chat-bg);
+  --color-postit-yellow: var(--postit-yellow);
+
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+
+  --color-border: var(--border);
+  --color-border-light: var(--border-light);
+
+  --font-sans: var(--font-noto-georgian), system-ui, sans-serif;
+  --font-handwriting: var(--font-patrick-hand), cursive;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* No dark mode - keep light theme */
+
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+}
+
+html,
+body {
+  max-width: 100vw;
+  overflow-x: hidden;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-noto-georgian), 'Noto Sans Georgian', system-ui, sans-serif;
+  line-height: 1.6;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--background-alt);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* Focus styles */
+:focus-visible {
+  outline: 2px solid var(--accent-yellow);
+  outline-offset: 2px;
+}
+
+/* Link styles */
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Animation utilities */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes bounce {
+  0%, 60%, 100% {
+    transform: translateY(0);
+  }
+  30% {
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes pop {
+  0% {
+    transform: scale(0);
+  }
+  70% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out forwards;
+}
+
+.animate-slide-in {
+  animation: slideIn 0.3s ease-out forwards;
+}
+
+.animate-pulse {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.animate-pop {
+  animation: pop 0.3s ease-out forwards;
+}
+
+/* Writing indicator animation */
+.writing-dots .dot {
+  display: inline-block;
+  animation: bounce 1.4s ease-in-out infinite;
+}
+
+.writing-dots .dot:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.writing-dots .dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.writing-dots .dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+/* Paperclip decoration */
+.paperclip {
+  position: absolute;
+  top: -12px;
+  right: 40px;
+  width: 20px;
+  height: 40px;
+  border: 3px solid #d1d5db;
+  border-radius: 9999px;
+  border-bottom: 0;
+}
+
+.paperclip::after {
+  content: '';
+  position: absolute;
+  top: 10px;
+  left: -3px;
+  right: -3px;
+  bottom: -24px;
+  border: 3px solid #d1d5db;
+  border-radius: 9999px;
+  border-top: 0;
+}
+
+/* Experience card styles */
+.experience-card {
+  transition: all 0.2s ease;
+}
+
+.experience-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.experience-card.selected {
+  border-color: var(--accent-yellow);
+  background-color: rgba(233, 196, 106, 0.2);
+}
+
+/* Notion-style document panel */
+.notion-page {
+  max-width: 100%;
+  margin: 0 auto;
+}
+
+.notion-icon {
+  font-size: 60px;
+  margin-bottom: 10px;
+}
+
+.notion-title {
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--notion-text);
+  margin-bottom: 20px;
+  line-height: 1.2;
+}
+
+.notion-properties {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 30px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.property-row {
+  display: flex;
+  align-items: center;
+  font-size: 13px;
+}
+
+.property-label {
+  width: 120px;
+  color: var(--notion-text-gray);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.property-value {
+  color: var(--notion-text);
+}
+
+.status-pill {
+  background: rgba(233, 196, 106, 0.2);
+  color: #b48519;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 500;
+  font-size: 12px;
+}
+
+.notion-h2 {
+  font-size: 20px;
+  font-weight: 600;
+  margin-top: 24px;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink-color);
+}
+
+.notion-block {
+  margin-bottom: 12px;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--notion-text);
+}
+
+.notion-placeholder {
+  color: #d3d1cb;
+  font-style: italic;
+}
+
+.notion-callout {
+  padding: 14px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: var(--callout-gray);
+  border-radius: 4px;
+  margin: 14px 0;
+  color: var(--notion-text);
+  font-size: 15px;
+}
+
+.notion-callout.bg-warm {
+  background: var(--callout-warm);
+}
+
+.notion-callout.bg-pink {
+  background: var(--callout-pink);
+}
+
+.callout-icon {
+  font-size: 18px;
+  line-height: 1.4;
+}
+
+.callout-content {
+  flex: 1;
+}
+
+/* Chat message styles */
+.message-bubble {
+  padding: 16px 20px;
+  border-radius: 8px;
+  font-size: 16px;
+  line-height: 1.6;
+  color: #333;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  border: 1px solid #e5e5e5;
+  max-width: 85%;
+}
+
+.message-bubble.bot {
+  background: white;
+  border-radius: 2px 12px 12px 12px;
+}
+
+.message-bubble.user {
+  background: var(--postit-yellow);
+  border-color: var(--accent-yellow);
+  border-radius: 12px 2px 12px 12px;
+}
+
+/* Logo styles */
+.logo-box {
+  width: 40px;
+  height: 40px;
+  background: var(--accent-hot);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-family: var(--font-handwriting), 'Patrick Hand', cursive;
+  font-weight: 700;
+  font-size: 20px;
 }
