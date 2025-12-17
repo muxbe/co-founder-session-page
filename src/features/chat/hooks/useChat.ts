@@ -2,7 +2,6 @@
 
 import { useState, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import type { Content } from '@google/generative-ai';
 import type {
   ChatState,
   ChatStatus,
@@ -10,9 +9,43 @@ import type {
   UserExperience,
   Field,
 } from '@/types';
-import { generateWithTools, sendFunctionResults, SYSTEM_PROMPT } from '@/features/ai/gemini/client';
-import { executeToolCalls } from '@/features/ai/gemini/toolHandlers';
-import type { AnalyzeIdeaPlanParams } from '@/features/ai/gemini/tools';
+
+// System prompt for AI
+const SYSTEM_PROMPT = `You are გიორგი (Giorgi), an AI business mentor for Cofounder.ge (Georgian startup platform).
+You help entrepreneurs develop their business ideas through conversation.
+Your name is გიორგი and you should introduce yourself as such.
+
+YOUR AGENTIC CAPABILITIES:
+1. PERSONALIZATION: Adapt your language and depth to user's experience level (which you'll learn through conversation)
+2. MEMORY: Remember and reference what user said in previous answers
+3. ADAPTATION: Adjust question count and depth based on answer quality
+4. SMART VALIDATION: Give specific examples, not generic feedback
+
+CONVERSATION STRATEGY:
+- FIRST: Always start by asking about the user's experience (role, business background, startup knowledge, idea stage)
+- Ask 2-3 quick questions to understand their experience level
+- THEN: Based on their experience, explore the business idea with appropriate depth
+- Adapt your language complexity based on their experience level
+
+ALWAYS:
+- Respond in Georgian (ქართული)
+- Be friendly and encouraging
+- Reference previous answers when relevant
+- Give concrete examples from THIS user's idea
+- Sign off as გიორგი when appropriate`;
+
+type AnalyzeIdeaPlanParams = {
+  idea_complexity: "simple" | "moderate" | "complex";
+  key_topics_to_explore: string[];
+  conversation_depth: "basic" | "detailed" | "expert";
+  estimated_questions: number;
+  reasoning: string;
+};
+
+type Content = {
+  role: 'user' | 'model';
+  parts: { text: string }[];
+};
 
 // Initial messages from გიორგი
 const INTRO_MESSAGES = [
@@ -218,32 +251,42 @@ export function useChat(): UseChatReturn {
 
     setConversationHistory(history);
 
-    // Call AI with tools
-    const response = await generateWithTools(history);
-
-    // Process function calls
-    if (response.functionCalls) {
-      const { results, stateUpdates } = await executeToolCalls(
-        response.functionCalls,
-        {
-          sessionId: sessionId || '',
+    // Call AI API with tools
+    const apiResponse = await fetch('/api/ai/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        conversationHistory: history,
+        sessionId: sessionId || '',
+        currentState: {
           fields: state.fields,
           sessionMemory: state.sessionMemory,
-        }
-      );
+        },
+      }),
+    });
+
+    if (!apiResponse.ok) {
+      throw new Error('AI API call failed');
+    }
+
+    const response = await apiResponse.json();
+
+    // Process function calls
+    if (response.functionCalls && response.stateUpdates) {
+      const { toolResults: results, stateUpdates } = response;
 
       // Update conversation history with function results
       const updatedHistory: Content[] = [
         ...history,
         {
-          role: 'model',
-          parts: response.functionCalls.map((fc) => ({
+          role: 'model' as const,
+          parts: response.functionCalls.map((fc: any) => ({
             functionCall: fc,
           })),
         },
         {
-          role: 'user',
-          parts: results.map((result) => ({
+          role: 'user' as const,
+          parts: results.map((result: any) => ({
             functionResponse: {
               name: result.name,
               response: result.response,
@@ -260,26 +303,43 @@ export function useChat(): UseChatReturn {
       }
 
       // Ask AI to generate first question
-      const followUpHistory = [
+      const followUpHistory: Content[] = [
         ...updatedHistory,
         {
-          role: 'user',
+          role: 'user' as const,
           parts: [{ text: 'Now generate the first question to ask the user. Call the generate_next_question tool.' }],
         },
       ];
 
-      const questionResponse = await generateWithTools(followUpHistory);
+      const questionApiResponse = await fetch('/api/ai/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          conversationHistory: followUpHistory,
+          sessionId: sessionId || '',
+          currentState: {
+            fields: state.fields,
+            sessionMemory: state.sessionMemory,
+          },
+        }),
+      });
+
+      if (!questionApiResponse.ok) {
+        throw new Error('AI API call failed');
+      }
+
+      const questionResponse = await questionApiResponse.json();
 
       // Process question generation
       if (questionResponse.functionCalls) {
         const questionData = questionResponse.functionCalls[0].args as { question_text: string, examples?: string[] };
 
         // Update conversation history
-        const finalHistory = [
+        const finalHistory: Content[] = [
           ...followUpHistory,
           {
-            role: 'model',
-            parts: questionResponse.functionCalls.map((fc) => ({ functionCall: fc })),
+            role: 'model' as const,
+            parts: questionResponse.functionCalls.map((fc: any) => ({ functionCall: fc })),
           },
         ];
         setConversationHistory(finalHistory);
@@ -311,26 +371,36 @@ export function useChat(): UseChatReturn {
     const updatedHistory: Content[] = [
       ...conversationHistory,
       {
-        role: 'user',
+        role: 'user' as const,
         parts: [{ text: `User's answer: ${answer}\n\nValidate this answer and decide next steps. Call validate_and_process_answer tool, then either ask a follow-up question or generate the next question on a different topic.` }],
       },
     ];
 
     setConversationHistory(updatedHistory);
 
-    // Call AI with tools
-    const response = await generateWithTools(updatedHistory);
-
-    // Process function calls
-    if (response.functionCalls) {
-      const { results, stateUpdates } = await executeToolCalls(
-        response.functionCalls,
-        {
-          sessionId: sessionId || '',
+    // Call AI API with tools
+    const apiResponse = await fetch('/api/ai/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        conversationHistory: updatedHistory,
+        sessionId: sessionId || '',
+        currentState: {
           fields: state.fields,
           sessionMemory: state.sessionMemory,
-        }
-      );
+        },
+      }),
+    });
+
+    if (!apiResponse.ok) {
+      throw new Error('AI API call failed');
+    }
+
+    const response = await apiResponse.json();
+
+    // Process function calls
+    if (response.functionCalls && response.stateUpdates) {
+      const { toolResults: results, stateUpdates } = response;
 
       // Update state with any field updates
       if (stateUpdates.newFields && stateUpdates.newFields.length > 0) {
@@ -345,7 +415,7 @@ export function useChat(): UseChatReturn {
           ...prev,
           fields: prev.fields.map((field) => {
             const update = stateUpdates.updatedFields!.find(
-              (u) => u.fieldKey === field.field_key
+              (u: any) => u.fieldKey === field.field_key
             );
             return update ? { ...field, ...update.updates } : field;
           }),
@@ -374,12 +444,12 @@ export function useChat(): UseChatReturn {
       const historyWithFunctionResults: Content[] = [
         ...updatedHistory,
         {
-          role: 'model',
-          parts: response.functionCalls.map((fc) => ({ functionCall: fc })),
+          role: 'model' as const,
+          parts: response.functionCalls.map((fc: any) => ({ functionCall: fc })),
         },
         {
-          role: 'user',
-          parts: results.map((result) => ({
+          role: 'user' as const,
+          parts: results.map((result: any) => ({
             functionResponse: {
               name: result.name,
               response: result.response,
@@ -390,11 +460,21 @@ export function useChat(): UseChatReturn {
 
       setConversationHistory(historyWithFunctionResults);
 
-      // Get AI's next response (question or follow-up)
-      const nextResponse = await sendFunctionResults(
-        historyWithFunctionResults,
-        results
-      );
+      // Get AI's next response (question or follow-up) via API
+      const nextApiResponse = await fetch('/api/ai/chat', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          conversationHistory: historyWithFunctionResults,
+          functionResults: results,
+        }),
+      });
+
+      if (!nextApiResponse.ok) {
+        throw new Error('AI API call failed');
+      }
+
+      const nextResponse = await nextApiResponse.json();
 
       setIsTyping(false);
 
