@@ -7,19 +7,25 @@ import {
 } from '@google/generative-ai';
 import { geminiTools } from './tools';
 
-const apiKey = process.env.GEMINI_API_KEY;
+// Lazy initialization to avoid module-level errors
+let genAI: GoogleGenerativeAI | null = null;
 
-if (!apiKey) {
-  throw new Error('Missing GEMINI_API_KEY environment variable');
+function getGenAI(): GoogleGenerativeAI {
+  if (!genAI) {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      throw new Error('Missing GEMINI_API_KEY environment variable');
+    }
+    genAI = new GoogleGenerativeAI(apiKey);
+  }
+  return genAI;
 }
-
-const genAI = new GoogleGenerativeAI(apiKey);
 
 /**
  * Get Gemini 1.5 Pro model instance
  */
 export function getGeminiModel(): GenerativeModel {
-  return genAI.getGenerativeModel({
+  return getGenAI().getGenerativeModel({
     model: 'gemini-1.5-pro',
     generationConfig: {
       temperature: 0.7,
@@ -99,7 +105,7 @@ ALWAYS:
  * Get Gemini model with function calling support
  */
 export function getGeminiModelWithTools(): GenerativeModel {
-  return genAI.getGenerativeModel({
+  return getGenAI().getGenerativeModel({
     model: 'gemini-1.5-pro',
     generationConfig: {
       temperature: 0.7,

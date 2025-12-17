@@ -49,7 +49,8 @@ export default function SessionPage() {
     if (!isInitialized) {
       initSession();
     }
-  }, [isInitialized, startSession]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isInitialized]); // Only run when isInitialized changes, not when startSession changes
 
   // Handle message submission (idea or answer)
   const handleMessageSubmit = async (message: string) => {
