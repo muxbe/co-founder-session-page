@@ -10,6 +10,7 @@ import { SYSTEM_PROMPT } from '@/features/ai/prompts/system';
 import { createClient } from '@/lib/supabase/server';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 // Type definitions for function call arguments
 interface NextTopicArgs {
