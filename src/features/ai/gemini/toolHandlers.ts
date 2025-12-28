@@ -23,6 +23,17 @@ export interface ToolExecutionResult {
   sessionComplete?: boolean;
   completionData?: CompleteSessionParams;
   conversationPlan?: AnalyzeIdeaPlanParams;
+  // Phase 5: Validation metadata for UI display
+  validationMetadata?: {
+    answer_quality: string;
+    feedback?: string;
+    suggestion?: string;
+    examples?: {
+      text: string;
+      why_good: string;
+      relevance: string;
+    }[];
+  };
 }
 
 /**
@@ -73,7 +84,11 @@ export async function executeToolCalls(
         break;
 
       case 'generate_next_question':
-        result = await handleGenerateQuestion(args as GenerateQuestionParams);
+        result = await handleGenerateQuestion(
+          args as GenerateQuestionParams,
+          currentState
+        );
+        // Field should be created separately via create_passport_field
         break;
 
       case 'validate_and_process_answer':
@@ -153,13 +168,22 @@ async function handleAnalyzeIdea(
 }
 
 async function handleGenerateQuestion(
-  args: GenerateQuestionParams
+  args: GenerateQuestionParams,
+  currentState: {
+    sessionId: string;
+    fields: Field[];
+    sessionMemory: SessionMemory | null;
+  }
 ): Promise<ToolExecutionResult> {
-  console.log('🤖 AI generated question:', args.question_topic);
-  return {
+  console.log('🤖 AI generated question:', args.question_topic, 'for field:', args.field_to_populate);
+
+  // Just return success - field should already be created by AI via create_passport_field
+  const result: ToolExecutionResult = {
     success: true,
     data: { message: 'Question generated' },
   };
+
+  return result;
 }
 
 async function handleValidateAnswer(
@@ -170,7 +194,8 @@ async function handleValidateAnswer(
     sessionMemory: SessionMemory | null;
   }
 ): Promise<ToolExecutionResult> {
-  console.log('🤖 AI validated answer:', args.answer_quality);
+  console.log('🤖 AI validated answer:', args.answer_quality, 'for field:', args.field_key);
+  console.log('🤖 Current fields:', currentState.fields.map(f => f.field_key).join(', '));
 
   const result: ToolExecutionResult = {
     success: true,
@@ -184,14 +209,20 @@ async function handleValidateAnswer(
 
   if (existingField) {
     // Update existing field
+    const newContent = existingField.content
+      ? `${existingField.content}\n\n${args.content_to_add}`
+      : args.content_to_add;
+
+    console.log('🤖 Updating field:', args.field_key, 'with content:', newContent.substring(0, 100) + '...');
+
     result.updatedField = {
       fieldKey: args.field_key,
       updates: {
-        content: existingField.content
-          ? `${existingField.content}\n\n${args.content_to_add}`
-          : args.content_to_add,
+        content: newContent,
       },
     };
+  } else {
+    console.warn('⚠️ Field not found for update:', args.field_key, 'Available fields:', currentState.fields.map(f => f.field_key));
   }
 
   // Update memory with extracted info
@@ -213,6 +244,21 @@ async function handleValidateAnswer(
         locations: currentEntities.locations,
       },
     };
+  }
+
+  // Phase 5: Store validation metadata for UI display
+  if (args.answer_quality === 'vague' || args.answer_quality === 'unclear') {
+    result.validationMetadata = {
+      answer_quality: args.answer_quality,
+      feedback: args.feedback,
+      suggestion: args.suggestion,
+      examples: args.idea_specific_examples?.map((ex) => ({
+        text: ex.example_answer,
+        why_good: ex.why_good,
+        relevance: ex.relevance_to_idea,
+      })),
+    };
+    console.log('🤖 Validation metadata:', result.validationMetadata);
   }
 
   return result;
@@ -252,18 +298,26 @@ async function handleUpdateField(
   args: UpdateFieldParams,
   currentFields: Field[]
 ): Promise<ToolExecutionResult> {
-  console.log('🤖 AI updating field:', args.field_key);
+  console.log('🤖 AI updating field:', args.field_key, 'mark_complete:', args.mark_complete);
+  console.log('🤖 Current fields:', currentFields.map(f => f.field_key).join(', '));
 
   const existingField = currentFields.find(
     (f) => f.field_key === args.field_key
   );
 
   if (!existingField) {
+    console.warn('⚠️ Field not found for update:', args.field_key);
     return {
       success: false,
       data: { error: 'Field not found' },
     };
   }
+
+  const newContent = existingField.content
+    ? `${existingField.content}\n\n${args.content_to_append}`
+    : args.content_to_append;
+
+  console.log('🤖 Updating field content:', newContent.substring(0, 100) + '...');
 
   return {
     success: true,
@@ -271,9 +325,7 @@ async function handleUpdateField(
     updatedField: {
       fieldKey: args.field_key,
       updates: {
-        content: existingField.content
-          ? `${existingField.content}\n\n${args.content_to_append}`
-          : args.content_to_append,
+        content: newContent,
         status: args.mark_complete ? 'complete' : existingField.status,
       },
     },
@@ -305,10 +357,28 @@ async function handleStoreMemory(
       break;
 
     case 'contradiction':
-      const contradictionText = typeof args.data === 'string' ? args.data : JSON.stringify(args.data);
+      // Handle contradiction data - could be string or Contradiction object
+      let contradictionObj: import('@/types/memory').Contradiction;
+
+      if (typeof args.data === 'string') {
+        // Create a basic Contradiction object from string
+        contradictionObj = {
+          id: `c-${Date.now()}`,
+          field1: 'unknown',
+          field2: 'current',
+          statement1: '',
+          statement2: args.data,
+          resolved: false,
+          created_at: new Date().toISOString(),
+        };
+      } else {
+        // Assume it's already a Contradiction object
+        contradictionObj = args.data as unknown as import('@/types/memory').Contradiction;
+      }
+
       memoryUpdate.contradictions = [
         ...(currentMemory?.contradictions || []),
-        contradictionText,
+        contradictionObj,
       ];
       break;
 

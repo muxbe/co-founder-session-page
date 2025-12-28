@@ -39,6 +39,9 @@ export interface Field {
   updated_at: string;
 }
 
+// Import validation types for MessageMetadata
+import type { IdeaSpecificExample } from './validation';
+
 // Message Types
 export interface Message {
   id: string;
@@ -54,27 +57,52 @@ export interface MessageMetadata {
   references_field?: string;
   is_example?: boolean;
   is_clarification?: boolean;
-  examples?: string[];
+  // Phase 5: Support both simple string examples and detailed IdeaSpecificExample objects
+  examples?: (string | IdeaSpecificExample)[];
+  answer_quality?: string;
 }
 
-// Session Memory Types
-export interface SessionMemory {
-  id: string;
-  session_id: string;
-  mentioned_entities: MentionedEntities;
-  field_summaries: Record<string, string>;
-  contradictions: string[];
-  created_at: string;
-  updated_at: string;
-}
+// Import memory types from dedicated file
+import type {
+  SessionMemory,
+  MentionedEntities,
+  Contradiction,
+  FieldSummaries,
+  MemoryUpdatePayload,
+  ExtractedEntities as MemoryExtractedEntities,
+  ContradictionCheckResult,
+} from './memory';
+import { initialMemory } from './memory';
 
-export interface MentionedEntities {
-  audiences: string[];
-  competitors: string[];
-  features: string[];
-  numbers: string[];
-  locations: string[];
-}
+// Re-export for external use
+export type {
+  SessionMemory,
+  MentionedEntities,
+  Contradiction,
+  FieldSummaries,
+  MemoryUpdatePayload,
+  MemoryExtractedEntities,
+  ContradictionCheckResult,
+};
+export { initialMemory };
+
+// Import validation types from dedicated file
+export type {
+  AnswerQuality,
+  ValidationResult as DetailedValidationResult,
+  ValidationRequest,
+  IdeaSpecificExample,
+  EnhancedValidationResult,
+} from './validation';
+
+// Import adaptive questioning types from dedicated file
+export type {
+  FieldComplexity,
+  PreviousFieldQuality,
+  DepthDecisionRequest,
+  DepthDecisionResult,
+} from './adaptive';
+export { FIELD_COMPLEXITY_MAP, BASE_QUESTION_COUNT } from './adaptive';
 
 // Chat State Types
 export type ChatStatus =
@@ -125,14 +153,7 @@ export interface QuestionDepthResult {
   reason: string;
 }
 
-export interface ExtractedEntities {
-  audiences: string[];
-  competitors: string[];
-  features: string[];
-  numbers: string[];
-  locations: string[];
-}
-
+// Keep backward compatibility
 export interface ContradictionResult {
   has_contradiction: boolean;
   contradiction_details?: string;

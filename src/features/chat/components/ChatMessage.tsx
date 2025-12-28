@@ -55,11 +55,47 @@ export function ChatMessage({ message, userName = 'გიორგი' }: ChatMe
       >
         <p className="whitespace-pre-wrap">{message.content}</p>
 
-        {/* Example indicator */}
-        {message.metadata?.is_example && (
+        {/* Enhanced examples display (Phase 5) */}
+        {message.metadata?.is_example && message.metadata.examples && message.metadata.examples.length > 0 && (
+          <div className="mt-4 space-y-3">
+            {message.metadata.examples.map((example, idx) => {
+              // Support both string examples and object examples
+              const isObjectExample = typeof example === 'object' && example !== null;
+              const exampleText = isObjectExample ? (example as any).text : example;
+              const whyGood = isObjectExample ? (example as any).why_good : null;
+              const relevance = isObjectExample ? (example as any).relevance : null;
+
+              return (
+                <div
+                  key={idx}
+                  className="example-card pl-4 border-l-2 border-[var(--accent-yellow)] bg-yellow-50 p-3 rounded-r transition-all hover:bg-yellow-100 hover:shadow-sm"
+                >
+                  <div className="font-medium text-sm mb-1 text-gray-900">
+                    {idx + 1}. {exampleText}
+                  </div>
+                  {whyGood && (
+                    <div className="text-xs text-gray-600 mt-1 flex items-start gap-1">
+                      <span className="flex-shrink-0">✓</span>
+                      <span>{whyGood}</span>
+                    </div>
+                  )}
+                  {relevance && (
+                    <div className="text-xs text-[var(--accent-hot)] mt-1 flex items-start gap-1">
+                      <span className="flex-shrink-0">🎯</span>
+                      <span>{relevance}</span>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Suggestion indicator */}
+        {message.metadata?.is_suggestion && !message.metadata.examples && (
           <div className="mt-3 pt-3 border-t border-[var(--border)]">
-            <span className="text-sm text-[var(--accent-hot)] font-medium">
-              💡 მაგალითი შენი იდეისთვის
+            <span className="text-sm text-blue-600 font-medium">
+              💬 რჩევა
             </span>
           </div>
         )}

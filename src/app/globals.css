@@ -388,3 +388,41 @@ a {
   font-weight: 700;
   font-size: 20px;
 }
+
+/* Phase 5: Validation Example Styles */
+.example-card {
+  background: #fffbeb;
+  border-left: 3px solid var(--accent-yellow);
+  padding: 12px 16px;
+  border-radius: 0 8px 8px 0;
+  margin: 8px 0;
+  transition: all 0.2s ease;
+}
+
+.example-card:hover {
+  background: #fef3c7;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.example-text {
+  font-size: 14px;
+  font-weight: 500;
+  color: #1f2937;
+  margin-bottom: 6px;
+}
+
+.example-meta {
+  font-size: 12px;
+  color: #6b7280;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.suggestion-box {
+  background: #eff6ff;
+  border-left: 4px solid #3b82f6;
+  padding: 12px;
+  border-radius: 0 6px 6px 0;
+  margin-top: 12px;
+}

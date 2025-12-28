@@ -3,10 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 3001",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "jest tests/api --verbose",
+    "test:chat": "jest tests/api/chat.test.ts --verbose",
+    "test:session": "jest tests/api/session.test.ts --verbose",
+    "test:memory": "jest tests/api/memory.test.ts --verbose"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
@@ -20,14 +24,18 @@
     "uuid": "^13.0.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.57.0",
     "@tailwindcss/postcss": "^4",
+    "@types/jest": "^30.0.0",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/uuid": "^11.0.0",
     "eslint": "^9",
     "eslint-config-next": "16.0.10",
+    "jest": "^30.2.0",
     "tailwindcss": "^4",
+    "ts-jest": "^29.4.6",
     "typescript": "^5"
   }
 }

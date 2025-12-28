@@ -57,14 +57,14 @@ export const geminiTools: FunctionDeclaration[] = [
   {
     name: "generate_next_question",
     description:
-      "Generate the next question to ask the user based on conversation history and current topic being explored. Consider what information is still missing and what would be most valuable to learn next.",
+      "Generate the next question to ask the user based on conversation history and current topic being explored. Consider what information is still missing and what would be most valuable to learn next. IMPORTANT: The question_text should contain ALL content in ONE single message - combine any greetings, emojis, branding, and the actual question together with line breaks.",
     parameters: {
       type: SchemaType.OBJECT,
       properties: {
         question_text: {
           type: SchemaType.STRING,
           description:
-            "The question to ask in Georgian language, conversational and friendly",
+            "The COMPLETE question message in Georgian language, conversational and friendly. This should be ONE single message containing all content (greetings, emojis, branding like '🤖 Cofounder', and the question). Use \\n for line breaks within the message.",
         },
         question_topic: {
           type: SchemaType.STRING,
@@ -149,6 +149,40 @@ export const geminiTools: FunctionDeclaration[] = [
           type: SchemaType.STRING,
           description:
             "If needs_followup is true, the follow-up question to ask (in Georgian)",
+        },
+        // Phase 5: Smart Validation with Examples
+        feedback: {
+          type: SchemaType.STRING,
+          description:
+            "If answer_quality is 'vague' or 'unclear', explain what's missing or vague about the answer (in Georgian)",
+        },
+        suggestion: {
+          type: SchemaType.STRING,
+          description:
+            "If answer_quality is 'vague' or 'unclear', suggest how to improve the answer (in Georgian)",
+        },
+        idea_specific_examples: {
+          type: SchemaType.ARRAY,
+          description:
+            "If answer_quality is 'vague' or 'unclear', provide 1-2 concrete examples tailored to THIS user's specific business idea",
+          items: {
+            type: SchemaType.OBJECT,
+            properties: {
+              example_answer: {
+                type: SchemaType.STRING,
+                description: "A concrete example answer (in Georgian)",
+              },
+              why_good: {
+                type: SchemaType.STRING,
+                description: "Explain what makes this example better (in Georgian)",
+              },
+              relevance_to_idea: {
+                type: SchemaType.STRING,
+                description:
+                  "Explain how this example relates to the user's specific business idea (in Georgian)",
+              },
+            },
+          },
         },
         content_to_add: {
           type: SchemaType.STRING,
@@ -351,6 +385,17 @@ export type ValidateAnswerParams = {
   };
   needs_followup: boolean;
   followup_question?: string;
+
+  // Phase 5: Smart Validation with Examples
+  feedback?: string; // What's missing/vague in the answer
+  suggestion?: string; // How to improve the answer
+  idea_specific_examples?: {
+    // 1-2 examples tailored to user's idea
+    example_answer: string; // The example itself
+    why_good: string; // What makes this example better
+    relevance_to_idea: string; // How it relates to THEIR specific idea
+  }[];
+
   content_to_add: string;
   field_key: string;
 };

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useChat } from '@/features/chat/hooks/useChat';
+import { useChat } from '@/features/chat/hooks';
 import {
   ChatMessage,
   TypingIndicator,
@@ -14,6 +14,8 @@ import {
   updateSessionExperience,
 } from '@/features/session';
 import type { UserExperience } from '@/types';
+import { ExperienceModal } from '@/components/ExperienceModal'; // 🆕 Phase 4
+import { DocumentPanel } from '@/features/document'; // 🆕 Phase 6
 
 export default function SessionPage() {
   const {
@@ -22,54 +24,88 @@ export default function SessionPage() {
     startSession,
     submitIdea,
     submitAnswer,
+    handleExperienceComplete, // 🆕 Phase 4
   } = useChat();
 
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const [isInitialized, setIsInitialized] = useState(false);
+  const [currentDate, setCurrentDate] = useState<string>('');
+  const [isOfflineMode, setIsOfflineMode] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const hasInitialized = useRef(false);
+
+  // Set current date on client side only (prevents hydration mismatch)
+  useEffect(() => {
+    setCurrentDate(
+      new Date().toLocaleDateString('ka-GE', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      })
+    );
+  }, []);
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [state.messages, isTyping]);
 
-  // Initialize session on mount
+  // Initialize session on mount (with protection against double initialization)
   useEffect(() => {
     const initSession = async () => {
+      // Prevent double initialization in React Strict Mode
+      if (hasInitialized.current) {
+        return;
+      }
+      hasInitialized.current = true;
+
       try {
         const session = await createSession();
         setSessionId(session.id);
+        setIsOfflineMode(false);
         startSession(session.id);
-        setIsInitialized(true);
       } catch (error) {
-        console.error('Failed to create session:', error);
+        console.error('Failed to create session (Supabase unreachable), using offline mode:', error);
+        // Create a local-only session
+        const localSessionId = `local-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+        setSessionId(localSessionId);
+        setIsOfflineMode(true);
+        startSession(localSessionId);
       }
     };
 
-    if (!isInitialized) {
-      initSession();
-    }
+    initSession();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isInitialized]); // Only run when isInitialized changes, not when startSession changes
+  }, []); // Empty deps - only run once on mount
 
   // Handle message submission (idea or answer)
   const handleMessageSubmit = async (message: string) => {
-    if (!sessionId) return;
+    console.log('[SessionPage] handleMessageSubmit called, sessionId:', sessionId, 'status:', state.status);
+    if (!sessionId) {
+      console.error('[SessionPage] ERROR: sessionId is null!');
+      return;
+    }
 
-    // Save to Supabase
-    try {
-      await saveMessage(sessionId, 'user', message);
+    // Save to Supabase (skip if offline)
+    if (!isOfflineMode) {
+      try {
+        await saveMessage(sessionId, 'user', message);
 
-      // If this is the first message (idea), update session idea
-      if (state.status === 'intro') {
-        await updateSessionIdea(sessionId, message);
-        submitIdea(message);
-      } else {
-        // Otherwise it's an answer to a question
-        submitAnswer(message);
+        // If this is the first message (idea), update session idea
+        if (state.status === 'ready') {
+          await updateSessionIdea(sessionId, message);
+        }
+      } catch (error) {
+        console.error('Failed to save message (offline mode):', error);
+        setIsOfflineMode(true); // Switch to offline mode on error
       }
-    } catch (error) {
-      console.error('Failed to save message:', error);
+    }
+
+    // Update local state (works in both online and offline mode)
+    console.log('[SessionPage] Calling', state.status === 'ready' ? 'submitIdea' : 'submitAnswer');
+    if (state.status === 'ready') {
+      submitIdea(message);
+    } else {
+      submitAnswer(message);
     }
   };
 
@@ -79,22 +115,6 @@ export default function SessionPage() {
         (state.fields.filter((f) => f.status === 'complete').length / state.fields.length) * 100
       )
     : 0;
-
-  // Get status text
-  const getStatusText = () => {
-    switch (state.status) {
-      case 'intro':
-        return 'დაწყება';
-      case 'analyzing':
-        return 'ანალიზი...';
-      case 'in-progress':
-        return 'მიმდინარე';
-      case 'session-complete':
-        return 'დასრულებული';
-      default:
-        return 'მიმდინარე';
-    }
-  };
 
   const closeWorkflow = () => {
     if (confirm('გამოსვლა?')) {
@@ -156,6 +176,11 @@ export default function SessionPage() {
         <div className="text-sm font-semibold text-[#555] min-w-[120px]">
           იდეის პასპორტი
         </div>
+        {isOfflineMode && (
+          <div className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">
+            📴 ოფლაინ რეჟიმი
+          </div>
+        )}
         <div className="flex-1 flex items-center gap-2.5">
           <div className="flex-1 h-2 bg-[#f0f0f0] rounded overflow-hidden">
             <div
@@ -198,119 +223,33 @@ export default function SessionPage() {
             <ChatInput
               onSubmit={handleMessageSubmit}
               placeholder={
-                state.status === 'intro'
+                state.status === 'ready'
                   ? 'აღწერე შენი ბიზნეს იდეა...'
                   : 'დაწერე პასუხი...'
               }
               disabled={
-                state.status !== 'intro' && state.status !== 'in-progress' && !isTyping
+                state.status !== 'ready' && state.status !== 'chatting'
               }
               isTextarea={true}
-              autoFocus={state.status === 'intro' && state.messages.length > 0}
+              autoFocus={state.status === 'ready' && state.messages.length > 0}
             />
           </div>
         </div>
 
-        {/* Right Panel - Document (40%) */}
-        <div className="hidden lg:block bg-white overflow-y-auto h-full">
-          <div className="p-10">
-            <div className="notion-page">
-              {/* Icon and Title */}
-              <div className="notion-icon">📄</div>
-              <div className="notion-title">იდეის პასპორტი</div>
-
-              {/* Properties */}
-              <div className="notion-properties">
-                <div className="property-row">
-                  <div className="property-label">📅 შექმნილია</div>
-                  <div className="property-value">
-                    {new Date().toLocaleDateString('ka-GE', {
-                      day: 'numeric',
-                      month: 'long',
-                      year: 'numeric',
-                    })}
-                  </div>
-                </div>
-                <div className="property-row">
-                  <div className="property-label">👤 ავტორი</div>
-                  <div className="property-value">გიორგი</div>
-                </div>
-                <div className="property-row">
-                  <div className="property-label">🏷 სტატუსი</div>
-                  <div className="property-value">
-                    <span className="status-pill">{getStatusText()}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Fields */}
-              {state.fields.length > 0 ? (
-                state.fields.map((field) => (
-                  <div key={field.id}>
-                    <div className="notion-h2">
-                      {field.icon} {field.name}
-                      {field.status === 'complete' && (
-                        <span className="text-[var(--accent-green)] animate-pop">✓</span>
-                      )}
-                    </div>
-                    {field.content ? (
-                      <div className={`notion-callout ${
-                        field.field_key === 'problem' ? 'bg-pink' : 'bg-warm'
-                      }`}>
-                        <div className="callout-icon">
-                          {field.field_key === 'problem' ? '🛑' : '✨'}
-                        </div>
-                        <div className="callout-content">{field.content}</div>
-                      </div>
-                    ) : field.status === 'active' ? (
-                      <div className="notion-block text-[var(--accent-yellow)] flex items-center gap-2">
-                        <span className="writing-dots">
-                          <span className="dot">.</span>
-                          <span className="dot">.</span>
-                          <span className="dot">.</span>
-                        </span>
-                        <span className="text-sm">იწერება</span>
-                      </div>
-                    ) : (
-                      <div className="notion-block notion-placeholder">
-                        დააჭირეთ რომ დაწეროთ...
-                      </div>
-                    )}
-                  </div>
-                ))
-              ) : (
-                // Default placeholder fields
-                <>
-                  <div className="notion-h2">🔥 პრობლემა</div>
-                  <div className="notion-block notion-placeholder">
-                    დააჭირეთ რომ დაწეროთ...
-                  </div>
-
-                  <div className="notion-h2">💡 გადაწყვეტა</div>
-                  <div className="notion-block notion-placeholder">
-                    დააჭირეთ რომ დაწეროთ...
-                  </div>
-
-                  <div className="notion-h2">🎯 სამიზნე მომხმარებელი</div>
-                  <div className="notion-block notion-placeholder">
-                    დააჭირეთ რომ დაწეროთ...
-                  </div>
-
-                  <div className="notion-h2">🚀 MVP ფუნქციები</div>
-                  <div className="notion-block notion-placeholder">
-                    დააჭირეთ რომ დაწეროთ...
-                  </div>
-                </>
-              )}
-
-              {/* Cursor hint */}
-              <div className="mt-5 text-[#d3d1cb] text-sm">
-                Type &apos;/&apos; for commands
-              </div>
-            </div>
-          </div>
-        </div>
+        {/* Right Panel - Document (40%) - 🆕 Phase 6: Now using DocumentPanel component */}
+        <DocumentPanel
+          fields={state.fields}
+          currentDate={currentDate}
+          status={state.status}
+          userExperience={state.conversationState?.userExperience}
+        />
       </div>
+
+      {/* 🆕 Phase 4: Experience Modal */}
+      <ExperienceModal
+        isOpen={state.showExperienceModal || false}
+        onComplete={handleExperienceComplete}
+      />
     </div>
   );
 }

@@ -41,9 +41,23 @@ export const eventEmitter = new EventEmitter();
 
 // Event types for type safety
 export type ChatEvents = {
-  'field:active': { fieldId: string };
-  'field:synthesizing': { fieldId: string };
-  'field:complete': { fieldId: string; content: string };
-  'session:complete': { sessionId: string };
+  'field:active': { fieldKey: string; fieldName: string; icon?: string };
+  'field:synthesizing': { fieldKey: string; progress?: number };
+  'field:complete': { fieldKey: string; content: string };
+  'session:complete': { sessionId: string; fieldsCompleted: number; score?: number };
   'experience:collected': { experience: unknown };
 };
+
+// Document Events Constants
+export const DocumentEvents = {
+  FIELD_ACTIVE: 'field:active',
+  FIELD_SYNTHESIZING: 'field:synthesizing',
+  FIELD_COMPLETE: 'field:complete',
+  SESSION_COMPLETE: 'session:complete',
+  EXPERIENCE_COLLECTED: 'experience:collected',
+} as const;
+
+export type DocumentEventType = typeof DocumentEvents[keyof typeof DocumentEvents];
+
+// Re-export for convenience
+export const documentEvents = eventEmitter;
