@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import type { UserExperience } from '@/types';
 
+// Force dynamic rendering
+export const dynamic = 'force-dynamic';
+
 /**
  * Save user experience to session
  * POST /api/session/experience
@@ -24,7 +27,7 @@ export async function POST(request: NextRequest) {
     console.log('[Save Experience] Session:', session_id);
     console.log('[Save Experience] Experience:', experience);
 
-    const supabase = await createClient();
+    const supabase = createClient();
 
     // Update session with user experience
     const { data, error } = await supabase
@@ -80,7 +83,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const supabase = await createClient();
+    const supabase = createClient();
 
     const { data, error } = await supabase
       .from('sessions')
